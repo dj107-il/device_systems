@@ -1,0 +1,26 @@
+
+· GITIGNORE
+# Entornos virtuales
+.venv/
+venv/
+env/
+ 
+# Cache de Python
+__pycache__/
+*.pyc
+*.pyo
+ 
+# Variables de entorno
+.env
+ 
+# Editores e IDE
+.vscode/
+.idea/
+ 
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+ 
+# Logs
+*.log
+ 
