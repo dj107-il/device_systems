@@ -1,12 +1,8 @@
 from fastapi import FastAPI, Request
 
-from app.database.connection import Base, engine
-from app.models.user_model import User
 from app.routes.user_routes import router as user_router
-
-# Importar User registra la tabla en los metadatos de Base.
-# Crear las tablas que todavia no existan.
-Base.metadata.create_all(bind=engine)
+from app.routes.device_routes import router as device_router
+from app.routes.loan_routes import router as loan_router
 
 app = FastAPI(
     title="device_systems",
@@ -23,6 +19,14 @@ app = FastAPI(
         {
             "name": "Inicio",
             "description": "Comprobación del funcionamiento de la API."
+        },
+        {
+            "name": "Devices",
+            "description": "Gestión de dispositivos tecnológicos."
+        },
+        {
+            "name": "Loans",
+            "description": "Préstamos y devoluciones de dispositivos."
         }
     ]
 )
@@ -48,3 +52,5 @@ def incio():
     }
     
 app.include_router(user_router)
+app.include_router(device_router)
+app.include_router(loan_router)

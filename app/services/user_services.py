@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.models.user_model import User
 from app.schemas.user_schemas import UserCreate, UserUpdate, UserPatch
+from sqlalchemy import select
+from app.models.loan_model import Loan
 
 def buscar_usuario_por_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
@@ -149,5 +151,17 @@ def actualizar_usuario_parcial(
     return usuario_actual
 
 def eliminar_usuario(db: Session, usuario_actual: User):
+    prestamo = db.scalar(
+        select(Loan.id)
+        .where(Loan.user_id == usuario_actual.id)
+        .limit(1)
+    )
+
+    if prestamo is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="No puede eliminar un usuario con historial de préstamos"
+        )
+
     db.delete(usuario_actual)
     confirmar_cambios(db)

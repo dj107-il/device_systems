@@ -1,28 +1,32 @@
 from datetime import datetime, timezone
+
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
+
 from app.database.connection import Base
+
 
 def fecha_actual_utc():
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
-class User(Base):
-    __tablename__ = "users"
+
+class Device(Base):
+    __tablename__ = "devices"
 
     id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
 
-    name = Column(String(50), nullable=False)
-
-    email = Column(
-        String(255),
+    serial_number = Column(
+        String(100),
         unique=True,
         nullable=False,
         index=True
     )
 
-    role = Column(String(20), nullable=False)
+    device_type = Column(String(30), nullable=False)
+    brand = Column(String(50), nullable=True)
 
-    is_active = Column(
+    is_available = Column(
         Boolean,
         default=True,
         nullable=False
@@ -33,9 +37,9 @@ class User(Base):
         default=fecha_actual_utc,
         nullable=False
     )
-    
+
     loans = relationship(
         "Loan",
-        back_populates="user",
+        back_populates="device",
         passive_deletes="all"
     )
