@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.dependencies.database_dependency import get_db
 from app.dependencies.user_dependencies import obtener_usuario_o_404
+from app.schemas.loan_schema import LoanDetailResponse
+from app.services import loan_services
 from app.models.user_model import User
 from app.schemas.user_schemas import UserCreate, UserUpdate, UserPatch, UserResponse
 from app.services.user_services import (
@@ -130,11 +132,12 @@ def actualizar_usuario_parcial_endpoint(
     "/{user_id}",
     status_code=204,
     summary="Eliminar un usuario",
-    description="Elimina el usuario de la base de datos.",
+    description="Elimina un usuario que no tenga historial de préstamos.",
     response_description="Usuario eliminado; respuesta sin cuerpo",
     responses={
         400: {"description": "Restricción de integridad incumplida."},
-        404: {"description": "Usuario no encontrado"}
+        404: {"description": "Usuario no encontrado"},
+        409: {"description": "El usuario tiene préstamos registrados"}
     }
 )
 def eliminar_usuario_endpoint(
@@ -143,3 +146,20 @@ def eliminar_usuario_endpoint(
 ):
     eliminar_usuario(db, usuario)
     return Response(status_code=204)
+
+@router.get(
+    "/{user_id}/loans",
+    response_model=list[LoanDetailResponse],
+    summary="Consultar préstamos de un usuario",
+    description="Muestra el historial del usuario y los dispositivos asociados.",
+    response_description="Historial de préstamos del usuario",
+    responses={404: {"description": "Usuario inexistente"}}
+)
+def obtener_prestamos_usuario(
+    usuario: User = Depends(obtener_usuario_o_404),
+    db: Session = Depends(get_db)
+):
+    return loan_services.listar_prestamos(
+        db=db,
+        user_id=usuario.id
+    )

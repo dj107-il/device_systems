@@ -30,3 +30,9 @@ device_systems.db
 device_systems.db-journal
 device_systems.db-wal
 device_systems.db-shm
+
+# Base temporal para comprobar migraciones
+ev10_migration_test.db
+ev10_migration_test.db-journal
+ev10_migration_test.db-wal
+ev10_migration_test.db-shm
