@@ -741,6 +741,12 @@ La persistencia tras reinicio fue comprobada durante el desarrollo. Para repetir
 
 ![Swagger EV09](images/GA1-EV09/ev09_swagger.png)
 
+### Consulta de usuarios: GET
+
+![Listado de usuarios con respuesta 200](images/GA1-EV09/ev09_get_usuarios.png)
+
+![Consulta por ID con respuesta 200](images/GA1-EV09/ev09_get_usuario.png)
+
 ### Creación: POST
 
 ![POST: petición](images/GA1-EV09/ev09_POST_201_parte1.png)
