@@ -792,8 +792,6 @@ La persistencia tras reinicio fue comprobada durante el desarrollo. Para repetir
 ![Datos inválidos](images/GA1-EV09/ev09_validacion_422.png)
 ![Usuario inexistente](images/GA1-EV09/ev09_usuario_404.png)
 
-Pendiente de adjuntar a las evidencias EV09: capturas específicas de GET exitoso del listado y de consulta por ID. Las capturas de [EV07](images/GA1-EV07/) y [EV08](images/GA1-EV08/) se conservan como antecedentes; no sustituyen las evidencias de persistencia de esta versión.
-
 # Reflexión final sobre la evolución del proyecto
 
 El proyecto `device_systems` evolucionó progresivamente desde una API básica hasta una aplicación backend con una estructura más organizada y funcionalidades orientadas a un escenario real de gestión de usuarios.
@@ -856,8 +854,6 @@ La actividad GA1-220501096-01-AA1-EV10 amplía usuarios con dispositivos y prés
 Se ejecutaron 50 comprobaciones HTTP sobre una base de pruebas independiente: **49 aprobadas y 1 fallida en la primera ejecución**. La base original no fue utilizada para estas operaciones. No se realizaron commits ni publicaciones durante esta revisión.
 
 **Corrección verificada:** el aprendiz restauró `GET /loans/{loan_id}`. La comprobación posterior confirmó 200 para el préstamo existente, 404 para uno inexistente, 200 para `/loans/details` y el registro en OpenAPI. Las 50 comprobaciones originales quedan cubiertas entre la ejecución inicial y esta repetición dirigida; no se repitió toda la batería.
-
-El [informe completo](images/GA1-EV10/informe_pruebas.md) detalla las comprobaciones.
 
 ### Migraciones con Alembic
 
@@ -950,7 +946,7 @@ Las siguientes capturas HTTP fueron tomadas de un informe que presenta respuesta
 ![Consulta de préstamo por ID](images/GA1-EV10/ev10_prestamo_id_200.png)
 ![Préstamo inexistente](images/GA1-EV10/ev10_prestamo_id_404.png)
 ![Consulta con joins](images/GA1-EV10/ev10_joins_200.png)
-![Filtros combinados](images/GA1-EV10/ev10_filtros_combinados_200.png)
+![Filtros combinados](images/GA1-EV10/ev10_filtros_combinados.png)
 ![Búsqueda por texto](images/GA1-EV10/ev10_busqueda_200.png)
 ![Filtro por fecha](images/GA1-EV10/ev10_filtro_fecha_200.png)
 ![Fechas inválidas](images/GA1-EV10/ev10_fechas_invalidas_422.png)
@@ -970,7 +966,7 @@ Las siguientes capturas HTTP fueron tomadas de un informe que presenta respuesta
 
 ### Usuario, documentación y migraciones
 
-![Creación de usuario](images/GA1-EV10/ev10_post_201.png)
+![Creación de dispositivo](images/GA1-EV10/ev10_post_201.png)
 ![Swagger actualizado](images/GA1-EV10/ev10_swagger_final_revision.png)
 ![Verificación de migraciones](images/GA1-EV10/ev10_alembic_verificacion.png)
 ![Estructura de tablas, parte ](images/GA1-EV10/ev10_tabla_estructura.png)
@@ -978,7 +974,3 @@ Las siguientes capturas HTTP fueron tomadas de un informe que presenta respuesta
 ### Reflexión sobre migraciones, relaciones y consultas
 
 Las migraciones permiten describir cómo evoluciona la base de datos y reproducir su estructura en otra instalación. Las relaciones permiten conservar el historial de préstamos sin repetir todos los datos del usuario o del dispositivo. Las claves foráneas y las transacciones ayudan a evitar registros huérfanos y cambios incompletos. Los joins y los filtros convierten esos datos relacionados en consultas útiles, como conocer quién recibió un equipo y cuándo lo devolvió.
-
-### Cierre pendiente
-
-La rama local actual es `device_systems_alembic_relaciones_ev10`; la guía solicita `device_systems_alembic_relaciones`. No se renombró durante esta revisión. El cierre requiere completar las evidencias y revisar los cambios antes de integrar y publicar con autorización del aprendiz.
