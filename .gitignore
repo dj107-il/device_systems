@@ -24,3 +24,9 @@ Thumbs.db
  
 # Logs
 *.log
+
+# Base de datos SQLite local
+device_systems.db
+device_systems.db-journal
+device_systems.db-wal
+device_systems.db-shm
