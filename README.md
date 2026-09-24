@@ -21,6 +21,7 @@ En la actividad **GA1-220501096-01-AA1-EV09**, se incorpora persistencia mediant
 - Postman / Thunder Client
 - Git y GitHub
 - SQLAlchemy 2
+- Alembic
 - SQLite
 
 ---
@@ -32,17 +33,36 @@ device_systems/
 ├── app/
 │   ├── main.py
 │   ├── database/connection.py
-│   ├── models/user_model.py
-│   ├── schemas/user_schemas.py
-│   ├── routes/user_routes.py
-│   ├── services/user_services.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── user_model.py
+│   │   ├── device_model.py
+│   │   └── loan_model.py
+│   ├── schemas/
+│   │   ├── user_schemas.py
+│   │   ├── device_schemas.py
+│   │   └── loan_schema.py
+│   ├── routes/
+│   │   ├── user_routes.py
+│   │   ├── device_routes.py
+│   │   └── loan_routes.py
+│   ├── services/
+│   │   ├── user_services.py
+│   │   ├── device_services.py
+│   │   └── loan_services.py
 │   └── dependencies/
 │       ├── database_dependency.py
 │       └── user_dependencies.py
 ├── images/
 │   ├── GA1-EV07/
 │   ├── GA1-EV08/
-│   └── GA1-EV09/
+│   ├── GA1-EV09/
+│   └── GA1-EV10/
+├── alembic/
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions/
+├── alembic.ini
 ├── .gitignore
 ├── .python-version
 ├── pyproject.toml
@@ -61,6 +81,7 @@ Con Python y uv instalados:
 git clone https://github.com/dj107-il/device_systems.git
 cd device_systems
 uv sync --locked
+uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
@@ -69,10 +90,11 @@ Alternativa con Python 3.14 y pip:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m alembic upgrade head
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
-Ejecutar siempre desde la raíz del proyecto. La URL `sqlite:///./device_systems.db` utiliza el directorio de ejecución. Al cargar la aplicación, `Base.metadata.create_all(bind=engine)` crea las tablas inexistentes. Una instalación nueva comienza sin usuarios; se crean mediante POST.
+Ejecutar siempre desde la raíz del proyecto. La URL `sqlite:///./device_systems.db` utiliza el directorio de ejecución. Desde EV10, ejecutar `alembic upgrade head` antes de iniciar la aplicación crea o actualiza las tablas. La aplicación ya no ejecuta `Base.metadata.create_all(bind=engine)`. Una instalación nueva comienza sin usuarios; se crean mediante POST.
 
 - [API local](http://127.0.0.1:8000/)
 - [Swagger UI](http://127.0.0.1:8000/docs)
@@ -823,3 +845,140 @@ El proyecto `device_systems` cumple con la implementación de una API REST para 
 ## Control de versiones
 
 EV09 se desarrolla en `feature/fastapi-sqlalchemy-ev09`. Tras revisar y probar los cambios, se integra en `develop`; la versión de entrega se publica en `main`. El historial conserva el desarrollo de las actividades anteriores.
+
+
+## EV10 — Migraciones, relaciones y consultas avanzadas
+
+La actividad GA1-220501096-01-AA1-EV10 amplía usuarios con dispositivos y préstamos. Se conserva la documentación de EV08 y EV09 como antecedente y se añaden estas instrucciones para la versión actual.
+
+### Estado de la revisión local del 24 de septiembre de 2026
+
+Se ejecutaron 50 comprobaciones HTTP sobre una base de pruebas independiente: **49 aprobadas y 1 fallida en la primera ejecución**. La base original no fue utilizada para estas operaciones. No se realizaron commits ni publicaciones durante esta revisión.
+
+**Corrección verificada:** el aprendiz restauró `GET /loans/{loan_id}`. La comprobación posterior confirmó 200 para el préstamo existente, 404 para uno inexistente, 200 para `/loans/details` y el registro en OpenAPI. Las 50 comprobaciones originales quedan cubiertas entre la ejecución inicial y esta repetición dirigida; no se repitió toda la batería.
+
+El [informe completo](images/GA1-EV10/informe_pruebas.md) detalla las comprobaciones.
+
+### Migraciones con Alembic
+
+Para una instalación nueva, desde la raíz del proyecto:
+
+```powershell
+uv sync --locked
+uv run alembic upgrade head
+uv run alembic current
+uv run alembic check
+uv run uvicorn app.main:app --reload
+```
+
+Las migraciones versionan los cambios estructurales. `upgrade head` aplica las pendientes, `current` muestra la revisión de la base, `history` lista la secuencia y `check` compara la estructura con los modelos.
+
+| Revisión | Cambio |
+|---|---|
+| `1c71b07f1dad` | Crea users y el índice único del correo |
+| `4ed025fa5b12` | Crea devices y loans con índices y claves foráneas |
+
+```powershell
+uv run alembic history
+```
+
+Durante la configuración inicial se utilizó `uv run alembic init alembic`. No se repite sobre una carpeta ya inicializada. Para nuevos cambios de modelos se genera una revisión con `uv run alembic revision --autogenerate -m "descripcion del cambio"`, se revisa el archivo y luego se aplica.
+
+Para incorporar la base de EV09 ya existente se verificó previamente que su tabla users coincidiera con la revisión inicial. Solo en ese caso se registró esa revisión mediante `stamp 1c71b07f1dad`; luego se aplicó la segunda migración. **Una instalación vacía usa upgrade, no stamp.**
+
+Ante un fallo: detener la actualización, leer el error, comprobar URL y revisión, revisar la migración y respaldar los datos antes de corregir. SQLite puede dejar cambios DDL parciales; no asumir que todo se deshizo. No usar `stamp head` para ocultar un error ni borrar la base original. La configuración y las revisiones se guardan en Git; los archivos .db permanecen excluidos.
+
+### Relaciones y reglas
+
+```text
+User 1 ─── N Loan N ─── 1 Device
+```
+
+`ForeignKey` vincula cada préstamo con usuarios y dispositivos existentes. `relationship` y `back_populates` permiten recorrer ambas direcciones desde Python. El motor de la aplicación activa `PRAGMA foreign_keys=ON` en cada conexión SQLite.
+
+- Device tiene serie única, nombre, tipo, marca opcional, disponibilidad y fecha de creación.
+- Loan guarda usuario, dispositivo, fecha de préstamo, fecha de devolución opcional y estado.
+- Crear un préstamo reserva el dispositivo y guarda ambas operaciones en una transacción.
+- Devolverlo registra la fecha, establece returned y libera el dispositivo.
+- No se permite volver a prestar un dispositivo ocupado ni devolver dos veces un préstamo: 409.
+- Usuarios y dispositivos con historial no pueden eliminarse: 409, aunque todos sus préstamos estén devueltos.
+- Los schemas validan la entrada; la base aplica restricciones. El estado overdue se admite, pero no se calcula automáticamente porque no existe fecha límite de devolución.
+
+### Endpoints de EV10
+
+| Método y ruta | Operación |
+|---|---|
+| GET /devices | Listar y filtrar dispositivos |
+| GET /devices/{device_id} | Consultar dispositivo |
+| POST /devices | Crear: 201 |
+| PUT /devices/{device_id} | Actualizar todos los campos editables |
+| PATCH /devices/{device_id} | Actualización parcial; solo brand admite null |
+| DELETE /devices/{device_id} | Eliminar sin historial: 204 sin cuerpo |
+| GET /loans | Listar y filtrar préstamos |
+| GET /loans/details | Préstamos con usuario y dispositivo |
+| GET /loans/{loan_id} | Consultar préstamo por ID: 200; inexistente: 404 |
+| POST /loans | Crear préstamo: 201 |
+| PATCH /loans/{loan_id}/return | Devolver: 200; no requiere JSON |
+| GET /users/{user_id}/loans | Historial del usuario |
+| GET /devices/{device_id}/loans | Historial del dispositivo |
+
+Las consultas exitosas devuelven 200. Los recursos inexistentes devuelven 404, las series duplicadas 400, los conflictos de negocio 409 y los datos o filtros inválidos 422.
+
+### Joins y filtros
+
+`select(Loan).join(User).join(Device)` representa la combinación de tablas; el servicio concreta las condiciones mediante sus claves. `where` añade filtros, `and_` combina los filtros enviados y `or_` permite buscar en varios campos con `ilike`.
+
+```text
+GET /devices?device_type=laptop&brand=lenovo&is_available=true
+GET /devices?search=thinkpad
+GET /loans/details
+GET /loans?status=returned&device_type=laptop
+GET /loans?user_email=aprendiz.ev10@example.com
+GET /loans?user_id=1&device_id=1
+GET /loans/details?search=ThinkPad
+GET /loans?fecha_desde=2026-09-24&fecha_hasta=2026-09-24
+```
+
+Las fechas se refieren al día UTC de creación del préstamo, incluyen ambos extremos y usan YYYY-MM-DD. Un intervalo invertido devuelve 422. `is_available` filtra la disponibilidad actual del dispositivo. Un filtro sin coincidencias devuelve una lista vacía con 200.
+
+### Evidencias de EV10
+
+Las siguientes capturas HTTP fueron tomadas de un informe que presenta respuestas reales de la instancia aislada de pruebas. No son capturas de Swagger ni ejemplos inventados. Los IDs pertenecen a esa base de prueba.
+
+### Consultas relacionadas y filtros
+
+![Consulta de préstamo por ID](images/GA1-EV10/ev10_prestamo_id_200.png)
+![Préstamo inexistente](images/GA1-EV10/ev10_prestamo_id_404.png)
+![Consulta con joins](images/GA1-EV10/ev10_joins_200.png)
+![Filtros combinados](images/GA1-EV10/ev10_filtros_combinados_200.png)
+![Búsqueda por texto](images/GA1-EV10/ev10_busqueda_200.png)
+![Filtro por fecha](images/GA1-EV10/ev10_filtro_fecha_200.png)
+![Fechas inválidas](images/GA1-EV10/ev10_fechas_invalidas_422.png)
+
+### Historiales
+
+![Historial del usuario](images/GA1-EV10/ev10_historial_usuario_200.png)
+![Historial del dispositivo](images/GA1-EV10/ev10_historial_dispositivo_200.png)
+
+### Actualización, eliminación e integridad
+
+![Actualización completa](images/GA1-EV10/ev10_put_device_200.png)
+![Eliminación exitosa](images/GA1-EV10/ev10_delete_device_204.png)
+![Consulta después de eliminar](images/GA1-EV10/ev10_device_eliminado_404.png)
+![Protección del usuario con historial](images/GA1-EV10/ev10_delete_usuario_historial_409.png)
+![Protección del dispositivo con historial](images/GA1-EV10/ev10_delete_dispositivo_historial_409.png)
+
+### Usuario, documentación y migraciones
+
+![Creación de usuario](images/GA1-EV10/ev10_post_201.png)
+![Swagger actualizado](images/GA1-EV10/ev10_swagger_final_revision.png)
+![Verificación de migraciones](images/GA1-EV10/ev10_alembic_verificacion.png)
+![Estructura de tablas, parte ](images/GA1-EV10/ev10_tabla_estructura.png)
+
+### Reflexión sobre migraciones, relaciones y consultas
+
+Las migraciones permiten describir cómo evoluciona la base de datos y reproducir su estructura en otra instalación. Las relaciones permiten conservar el historial de préstamos sin repetir todos los datos del usuario o del dispositivo. Las claves foráneas y las transacciones ayudan a evitar registros huérfanos y cambios incompletos. Los joins y los filtros convierten esos datos relacionados en consultas útiles, como conocer quién recibió un equipo y cuándo lo devolvió.
+
+### Cierre pendiente
+
+La rama local actual es `device_systems_alembic_relaciones_ev10`; la guía solicita `device_systems_alembic_relaciones`. No se renombró durante esta revisión. El cierre requiere completar las evidencias y revisar los cambios antes de integrar y publicar con autorización del aprendiz.
