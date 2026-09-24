@@ -1,7 +1,11 @@
-from typing import Optional
+from typing import Literal
 from fastapi import APIRouter, Depends, Response
+from sqlalchemy.orm import Session
+
+from app.dependencies.database_dependency import get_db
 from app.dependencies.user_dependencies import obtener_usuario_o_404
-from app.schemas.user_schemas import User, UserCreate, UserUpdate, UserPatch
+from app.models.user_model import User
+from app.schemas.user_schemas import UserCreate, UserUpdate, UserPatch, UserResponse
 from app.services.user_services import (
     actualizar_usuario,
     actualizar_usuario_parcial,
@@ -12,12 +16,12 @@ from app.services.user_services import (
 
 router = APIRouter(
     prefix="/users",
-    tags=["users"]
+    tags=["Users"]
 )
 
 @router.get(
     "", 
-    response_model=list[User],
+    response_model=list[UserResponse],
     summary="Listar y filtrar usuarios",
     description=(
         "Obtiene los usuarios registrados. permitiendo filtrar por rol "
@@ -26,17 +30,21 @@ router = APIRouter(
     response_description="Lista de usuarios que cumplen los filtros"
 )
 def obtener_usuarios(
-    role: Optional[str] = None,
-    is_active: Optional[bool] = None
+    role: Literal["admin", "support", "user"] | None = None,
+    is_active: bool | None = None,
+    ordenar_por: Literal["name", "created_at"] = "name",
+    db: Session = Depends(get_db)
 ):
     return  listar_usuarios(
+        db=db,
         role=role,
-        is_active=is_active
+        is_active=is_active,
+        ordenar_por= ordenar_por
     )
 
 @router.get(
     "/{user_id}", 
-    response_model=User,
+    response_model=UserResponse,
     summary="Consultar un usuario",
     description="Buscar un usuario por su identificador.(id)",
     response_description="Usuario encontrado",
@@ -52,7 +60,7 @@ def obtener_usuario(
 
 @router.post(
     "/",
-    response_model=User,
+    response_model=UserResponse,
     status_code=201,
     summary="crea un usuario",
     description=(
@@ -64,13 +72,15 @@ def obtener_usuario(
         400: {"description": "Correo electrónico duplicado"}
     }
 )
-def crear_usuario(usuario: UserCreate):
-    return registrar_usuario(usuario)
+def crear_usuario(
+    datos: UserCreate,
+    db: Session = Depends(get_db)
+):
+    return registrar_usuario(db, datos)
 
 @router.put(
     "/{user_id}",
-    response_model=User,
-    status_code=200,
+    response_model=UserResponse,
     summary="Actualizar completamente un usuario",
     description=(
         "Reemplaza nombre, correo, rol y estado del usuario. "
@@ -84,17 +94,18 @@ def crear_usuario(usuario: UserCreate):
 )
 def actualizar_usuario_endpoint(
     datos: UserUpdate,
-    usuario: User = Depends(obtener_usuario_o_404)  
+    usuario: User = Depends(obtener_usuario_o_404),
+    db: Session = Depends(get_db)
 ):
     return actualizar_usuario(
+        db=db,
         usuario_actual=usuario,
         datos=datos
     )
 
 @router.patch(
     "/{user_id}",
-    response_model=User,
-    status_code=200,
+    response_model=UserResponse,
     summary="Actualizar parcialmente un usuario",
     description="Modifica únicamente los campos enviados. Debe incluir al menos uno. \n No permite valores null, ni correos de otros usuarios.",
     response_description="Usuario actualizado",
@@ -106,9 +117,11 @@ def actualizar_usuario_endpoint(
 )
 def actualizar_usuario_parcial_endpoint(
     datos: UserPatch,
-    usuario: User = Depends(obtener_usuario_o_404)
+    usuario: User = Depends(obtener_usuario_o_404),
+    db: Session = Depends(get_db)
 ):
     return actualizar_usuario_parcial(
+        db=db,
         usuario_actual=usuario,
         datos=datos
     )
@@ -117,14 +130,16 @@ def actualizar_usuario_parcial_endpoint(
     "/{user_id}",
     status_code=204,
     summary="Eliminar un usuario",
-    description="Elimina de la colección en memoria el usuario indicado.",
+    description="Elimina el usuario de la base de datos.",
     response_description="Usuario eliminado; respuesta sin cuerpo",
     responses={
+        400: {"description": "Restricción de integridad incumplida."},
         404: {"description": "Usuario no encontrado"}
     }
 )
 def eliminar_usuario_endpoint(
-    usuario: User = Depends(obtener_usuario_o_404)
+    usuario: User = Depends(obtener_usuario_o_404),
+    db: Session = Depends(get_db)
 ):
-    eliminar_usuario(usuario)
+    eliminar_usuario(db, usuario)
     return Response(status_code=204)
