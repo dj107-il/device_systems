@@ -12,11 +12,25 @@ from app.schemas.device_schemas import (
 from app.services import device_services
 from app.schemas.loan_schema import LoanDetailResponse
 from app.services import loan_services
+from app.dependencies.auth_dependency import (
+    get_current_active_user,
+    require_admin,
+    require_admin_or_support,
+)
 
 
 router = APIRouter(
     prefix="/devices",
-    tags=["Devices"]
+    tags=["Devices"],
+    dependencies=[Depends(get_current_active_user)],
+    responses={
+        401: {
+            "description": "Token ausente, inváliddo o vencido."
+        },
+        403: {
+            "description": "Usuario inactivo o sin permisos suficientes."
+        }
+    }
 )
 
 
@@ -63,6 +77,7 @@ def obtener_dispositivo(
 
 @router.post(
     "",
+    dependencies=[Depends(require_admin_or_support)],
     response_model=DeviceResponse,
     status_code=201,
     summary="Crear un dispositivo",
@@ -82,6 +97,7 @@ def crear_dispositivo(
 
 @router.put(
     "/{device_id}",
+    dependencies=[Depends(require_admin_or_support)],
     response_model=DeviceResponse,
     summary="Actualizar completamente un dispositivo",
     description="Exige todos los campos editables; conserva ID y fecha.",
@@ -107,6 +123,7 @@ def actualizar_dispositivo(
 
 @router.patch(
     "/{device_id}",
+    dependencies=[Depends(require_admin_or_support)],
     response_model=DeviceResponse,
     summary="Actualizar parcialmente un dispositivo",
     description="Modifica los campos enviados. Solo brand permite null.",
@@ -131,6 +148,7 @@ def actualizar_dispositivo_parcial(
 
 @router.delete(
     "/{device_id}",
+    dependencies=[Depends(require_admin)],
     status_code=204,
     summary="Eliminar un dispositivo",
     description="Permite eliminar dispositivos sin historial de préstamos.",
@@ -152,6 +170,7 @@ def eliminar_dispositivo(
 
 @router.get(
     "/{device_id}/loans",
+    dependencies=[Depends(require_admin_or_support)],
     response_model=list[LoanDetailResponse],
     summary="Consultar historial de un dispositivo",
     description="Muestra los préstamos del dispositivo y los usuarios asociados.",

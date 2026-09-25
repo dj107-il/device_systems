@@ -1,9 +1,10 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import EmailStr
 from sqlalchemy.orm import Session
 
+from app.rate_limit import limiter
 from app.dependencies.database_dependency import get_db
 from app.schemas.device_schemas import DeviceType
 from app.services import loan_services
@@ -13,10 +14,23 @@ from app.schemas.loan_schema import (
     LoanResponse,
     LoanStatus,
 )
+from app.dependencies.auth_dependency import (
+    get_current_active_user,
+    require_admin_or_support,
+)
 
 router = APIRouter(
     prefix="/loans",
-    tags=["Loans"]
+    tags=["Loans"],
+    dependencies=[Depends(get_current_active_user)],
+    responses={
+        401: {
+            "description": "Token ausente, inválido o vencido."
+        },
+        403: {
+            "description": "Usuario inactivo o sin permisos suficientes."
+        }
+    }
 )
 
 @router.get(
@@ -32,6 +46,7 @@ router = APIRouter(
 )
 @router.get(
     "/details",
+    dependencies=[Depends(require_admin_or_support)],
     response_model=list[LoanDetailResponse],
     summary="Consultar préstamos con usuario y dispositivo",
     description=(
@@ -99,10 +114,13 @@ def obtener_prestamo(
     responses={
         404: {"description": "Usuario o dispositivo inexistente"},
         409: {"description": "Dispositivo no disponible o conflicto de integridad"},
-        422: {"description": "Datos inválidos"}
+        422: {"description": "Datos inválidos"},
+        429: {"description": "Límite de solicitudes excedido."}
     }
 )
+@limiter.limit("10/minute")
 def crear_prestamo(
+    request: Request,
     datos: LoanCreate,
     db: Session = Depends(get_db)
 ):
@@ -111,6 +129,7 @@ def crear_prestamo(
 
 @router.patch(
     "/{loan_id}/return",
+    dependencies=[Depends(require_admin_or_support)],
     response_model=LoanResponse,
     summary="Devolver un dispositivo",
     description=(
