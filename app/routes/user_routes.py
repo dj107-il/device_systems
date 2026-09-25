@@ -1,6 +1,7 @@
 from typing import Literal
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
+from app.rate_limit import limiter
 
 from app.dependencies.database_dependency import get_db
 from app.dependencies.user_dependencies import obtener_usuario_o_404
@@ -15,10 +16,24 @@ from app.services.user_services import (
     listar_usuarios,
     registrar_usuario
 )
+from app.dependencies.auth_dependency import (
+    get_current_active_user,
+    require_admin,
+    require_admin_or_support
+)
 
 router = APIRouter(
     prefix="/users",
-    tags=["Users"]
+    tags=["Users"],
+    dependencies=[Depends(get_current_active_user)],
+    responses={
+        401: {
+            "description": "Token ausente, inválido o vencido."
+        },
+        403: {
+            "description": "Usuario inactivo o sin permisos suficientes."
+        }
+    }
 )
 
 @router.get(
@@ -29,9 +44,14 @@ router = APIRouter(
         "Obtiene los usuarios registrados. permitiendo filtrar por rol "
         " y por estado activo; ambos filtros pueden combinarse."
     ),
-    response_description="Lista de usuarios que cumplen los filtros"
+    response_description="Lista de usuarios que cumplen los filtros",
+    responses={
+        429: {"description": "Límite de solicitudes excedido."}
+    }
 )
+@limiter.limit("30/minute")
 def obtener_usuarios(
+    request: Request,
     role: Literal["admin", "support", "user"] | None = None,
     is_active: bool | None = None,
     ordenar_por: Literal["name", "created_at"] = "name",
@@ -62,6 +82,7 @@ def obtener_usuario(
 
 @router.post(
     "/",
+    dependencies=[Depends(require_admin)], #Permiso adicional
     response_model=UserResponse,
     status_code=201,
     summary="crea un usuario",
@@ -82,6 +103,7 @@ def crear_usuario(
 
 @router.put(
     "/{user_id}",
+    dependencies=[Depends(require_admin)],
     response_model=UserResponse,
     summary="Actualizar completamente un usuario",
     description=(
@@ -107,6 +129,7 @@ def actualizar_usuario_endpoint(
 
 @router.patch(
     "/{user_id}",
+    dependencies=[Depends(require_admin)],
     response_model=UserResponse,
     summary="Actualizar parcialmente un usuario",
     description="Modifica únicamente los campos enviados. Debe incluir al menos uno. \n No permite valores null, ni correos de otros usuarios.",
@@ -130,6 +153,7 @@ def actualizar_usuario_parcial_endpoint(
     
 @router.delete(
     "/{user_id}",
+    dependencies=[Depends(require_admin)],
     status_code=204,
     summary="Eliminar un usuario",
     description="Elimina un usuario que no tenga historial de préstamos.",
@@ -149,6 +173,7 @@ def eliminar_usuario_endpoint(
 
 @router.get(
     "/{user_id}/loans",
+    dependencies=[Depends(require_admin_or_support)],
     response_model=list[LoanDetailResponse],
     summary="Consultar préstamos de un usuario",
     description="Muestra el historial del usuario y los dispositivos asociados.",

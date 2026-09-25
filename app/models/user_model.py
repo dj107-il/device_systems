@@ -19,6 +19,12 @@ class User(Base):
         nullable=False,
         index=True
     )
+    
+    hashed_password = Column(
+        String(255),
+        nullable=False,
+        server_default="!",
+    )
 
     role = Column(String(20), nullable=False)
 
